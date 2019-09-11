@@ -1,2 +1,2 @@
-# Competitive-Programming
+# competitive programming
 Solutions of some problems on different Online Judges
