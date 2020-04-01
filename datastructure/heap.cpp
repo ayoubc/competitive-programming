@@ -48,8 +48,8 @@ private:
     void bubble_up(std::size_t index){
         while(index > 1) {
             std::size_t par = this->parent(index);
-            if(this->tree[index] > tree[par]) {
-                swap(this->tree[index], tree[par]);
+            if(this->tree[index] > this->tree[par]) {
+                swap(this->tree[index], this->tree[par]);
                 index = par;
             }
             else break;
