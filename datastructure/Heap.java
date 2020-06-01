@@ -43,11 +43,11 @@ public class Heap<T extends Comparable<T>> {
         return index / 2;
     }
 
-    private int left_child(int index) {
+    private int leftChild(int index) {
         return 2 * index;
     }
 
-    private int right_child(int index) {
+    private int rightChild(int index) {
         return 2 * index + 1;
     }
 
@@ -64,8 +64,8 @@ public class Heap<T extends Comparable<T>> {
     void bubbleDown(int index) {
         while (true) {
             int largest = index;
-            int left = left_child(index);
-            int right = right_child(index);
+            int left = leftChild(index);
+            int right = rightChild(index);
             if (left < this.tree.size() && this.tree.get(left).compareTo(this.tree.get(largest)) > 0) {
                 largest = left;
             }
