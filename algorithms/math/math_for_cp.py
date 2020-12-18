@@ -1,4 +1,4 @@
-from math import sqrt
+from math import sqrt, ceil, log10
 
 
 def factorization(n: int) -> dict:
@@ -14,19 +14,18 @@ def factorization(n: int) -> dict:
     return res
 
 
-def factorize_interval(n: int) -> list:
-    # this is too slow, need some improvements
-    # s = time.time()
-    l = [[0], [1]]
-    for i in range(2, n + 1, 1):
-        l.append(factorization(i))
+def power(x, n):
+    if n == 0:
+        return 1
 
-    # e = time.time()
-    # print(int(e - s) + 1)
-    return l
+    tmp = power(x, n // 2)
+    tmp = tmp * tmp
+    if n % 2 != 1:
+        tmp *= x
+    return tmp
 
 
-def gcd(a: int, b: int) -> int:
+def gcd(a, b):
     if b == 0:
         return a
     return gcd(b, a % b)
@@ -62,7 +61,7 @@ def extended_euclid(a, b):
     return d, x, y
 
 
-def modular_inverse(a: int, n: int) -> int:
+def modular_inverse(a, n):
     d, x, y = extended_euclid(a, n)
     if d != 1:
         return None
@@ -83,10 +82,102 @@ def is_prime(n: int) -> bool:
     return True
 
 
-def divisors(n: int) -> list:
+def count_divisors(n: int) -> list:
     res = [0 for i in range(n + 1)]
     for i in range(1, n + 1, 1):
         for j in range(i, n + 1, i):
             res[j] += 1
 
     return res
+
+
+def num_dig_fibo(n):
+    """
+    :param n:
+    :return: number of digits in the n-th fibonacci number
+    """
+    if n == 1:
+        return 1
+    phi = (1 + 5 ** .5) / 2
+    return ceil((n * log10(phi) - .5 * log10(5)))
+
+
+def sample_sieve(limit):
+    prime = [True] * (limit + 1)
+    p = 2
+    while p * p <= limit:
+        if prime[p]:
+            for j in range(p*p, limit+1, p):
+                prime[j] = False
+        p += 1
+
+    return prime
+
+
+def segmented_sieve(l, r):
+    q = int(sqrt(r)) + 1
+    mark = [True] * q
+    primes = []
+    for p in range(2, q):
+        if mark[p]:
+            primes.append(p)
+            for j in range(p * p, q, p):
+                mark[j] = False
+
+    mark = [True] * (r - l + 1)
+    for p in primes:
+        start = max(p, (l + p - 1) // p) * p
+        for j in range(start, r + 1, p):
+            mark[j - l] = False
+    if l == 1:
+        mark[0] = False
+    return mark
+
+
+def chinese_reminder(a, p):
+    k = len(p)
+    inv = [list(range(k)) for j in range(k)]
+    for i in range(k):
+        for j in range(k):
+            if i != j:
+                inv[i][j] = modular_inverse(p[i], p[j])
+
+    x = list(range(k))
+    for i in range(k):
+        x[i] = a[i]
+        for j in range(i):
+            x[i] = inv[j][i] * (x[i] - x[j])
+            x[i] %= p[i]
+            if x[i] < 0:
+                x[i] += p[i]
+
+    ans = x[0]
+    prod = 1
+    K = 1
+    for i in range(k):
+        K *= p[i]
+
+    for i in range(1, k):
+        prod *= p[i-1]
+        ans += x[i] * prod
+        ans %= K
+    return ans
+
+
+def modular_inverse_of_range(m):
+    """
+    To find modular inverse of numbers [1 - m-1] mod m.
+    m must be a prime number. Time complexity is O(m).
+    """
+    inv = [i for i in range(m)]
+    for i in range(2, m):
+        inv[i] = m - (m // i) * inv[m % i] % m
+    return inv
+
+
+def phi(n):
+    res = factorization(n)
+    ans = 1
+    for p in res:
+        ans *= power(p, res[p] - 1) * (p - 1)
+    return ans
