@@ -181,3 +181,71 @@ def phi(n):
     for p in res:
         ans *= power(p, res[p] - 1) * (p - 1)
     return ans
+
+
+def phi_2(n):
+    ans = n
+    i = 2
+    while i * i <= n:
+        if n % i == 0:
+            while n % i == 0:
+                n //= i
+
+            ans -= ans // i
+
+    if n > 1:
+        ans -= ans // n
+    return ans
+
+
+class Point:
+    EPS = 0.0001
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+
+    def __mul__(self, other):
+        return self.x * other.y - self.y * other.x
+
+    def __add__(self, other):
+        return Point(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other):
+        return Point(self.x - other.x, self.y - other.y)
+
+    def __eq__(self, other):
+        return abs(self.x - other.x) <= self.EPS and abs(self.y - other.y) <= self.EPS
+
+
+class Segment:
+    EPS = 0.0001
+    def __init__(self, points):
+        self.first = Point(points[0], points[1])
+        self.last = Point(points[2], points[3])
+
+    def position_of_point(self, point):
+        return (point - self.first) * (point - self.last)
+
+    def check_common_vertex(self, other):
+        return self.first == other.first or self.first == other.last \
+               or self.last == other.first or self.last == other.last
+
+    def intersect(self, other):
+        cross_1 = self.position_of_point(other.first)
+        cross_2 = self.position_of_point(other.last)
+        a, b = self.first, self.last
+        c, d = other.first, other.last
+
+        if abs(cross_1) <= self.EPS and abs(cross_2) <= self.EPS:
+            return False
+        elif self.check_common_vertex(other):
+            return True
+
+        if (b - a)*(c - a)*((b- a)*(d - a)) > 0:
+            return False
+
+        a, c = c, a
+        b, d = d, b
+        if (b - a)*(c - a)*((b- a)*(d - a)) > 0:
+            return False
+        return True
