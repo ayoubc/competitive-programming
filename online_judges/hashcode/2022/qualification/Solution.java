@@ -1,6 +1,5 @@
 
 import java.io.*;
-import java.net.CookieHandler;
 import java.util.*;
 
 
@@ -11,16 +10,16 @@ public class Solution {
     static List<Integer>[] graph;
 
     static char[][] grid;
-    static double[] oldBestPercent = {1.0, 0.69, 0.34, 0.076, 0.6, 0.09};
 
-    static double[] bestPercent = {1.0, 0.69, 0.34, 0.076, 0.6, 0.09};
     static char currentLetter = 'a';
+    static int MAX_PROJECTS_IN_PARALLEL = 150;
+    static int PERCENTILE_PROJECTS_PARALLEL = 25;
 
     public static void main(String[] args){
-//        char[] chars = {'a', 'b', 'c', 'd', 'e', 'f'};
+        char[] chars = {'a', 'b', 'c', 'd', 'e', 'f'};
 
 
-        char[] chars = {'f'};
+//        char[] chars = {'f'};
         for (char c : chars) {
             currentLetter = c;
             InputStream is;
@@ -37,6 +36,8 @@ public class Solution {
 
             int C = in.nextInt();
             int P = in.nextInt();
+
+            MAX_PROJECTS_IN_PARALLEL = Math.min((P * PERCENTILE_PROJECTS_PARALLEL) / 100, MAX_PROJECTS_IN_PARALLEL);
 
             Contributor[] contributors = new Contributor[C];
             for (int i=0;i<C;i++){
@@ -68,15 +69,27 @@ public class Solution {
                 int s1 = p1.getTotalScore();
                 int s2 = p2.getTotalScore();
                 if (s1 == s2) {
-                    if (p1.score == p2.score) return 0;
+                    if (p1.score == p2.score) {
+                        if (p1.bestBefore == p2.bestBefore) {
+                            if (p1.days == p2.days) {
+                                if (p1.roles == p2.roles) return 0;
+                                if (p1.roles < p2.roles) return -1;
+                                return 1;
+                            }
+                            if (p1.days < p2.days) return -1;
+                            return 1;
+                        }
+                        if (p1.bestBefore < p2.bestBefore) return -1;
+                        return 1;
+                    }
                     if (p1.score > p2.score) return -1;
                     return 1;
                 }
-                if (s1 < s2) return -1;
+                if (s1 > s2) return -1;
                 return 1;
             });
 
-            solve2(C, P, contributors, projects, out);
+            solve3(C, P, contributors, projects, out);
             out.close();
         }
     }
@@ -176,8 +189,6 @@ public class Solution {
         List<Project> res = new ArrayList<>();
         int days = 0;
 
-        int percent = (int) (bestPercent[currentLetter - 'a'] * P);
-
         while (!q.isEmpty()) {
             Project project = q.poll();
 
@@ -232,9 +243,7 @@ public class Solution {
                 res.add(project);
             }
             else {
-                if (res.size() < percent) q.add(project);
-//                if (project.score >= days - project.bestBefore) q.add(project);
-
+                if (project.score >= days - project.bestBefore) q.add(project);
             }
             for (Contributor con: roles) con.release();
             days += project.days;
@@ -247,7 +256,144 @@ public class Solution {
             out.println();
         }
     }
+    static void solve3(int C, int P, Contributor[] contributors, Project[] projects, PrintWriter out) {
 
+        HashSet<String> allSkillsSet = new HashSet<>();
+        HashMap<String, List<Contributor>> allSkillsMap = new HashMap<>();
+        for (Contributor con: contributors) {
+            for (Skill skill: con.skills) {
+                allSkillsSet.add(skill.name);
+                List<Contributor> tmp = allSkillsMap.get(skill.name);
+                if (tmp == null) tmp = new ArrayList<>();
+
+                tmp.add(con);
+                allSkillsMap.put(skill.name, tmp);
+            }
+        }
+
+        for (String name: allSkillsSet) {
+            List<Contributor> tmp = allSkillsMap.get(name);
+            Collections.sort(tmp, (c1, c2) -> {
+                Skill s1 = c1.getSkill(name);
+                Skill s2 = c2.getSkill(name);
+                if (s1.level == s2.level) return 0;
+                if (s1.level < s2.level) return -1;
+                return 1;
+            });
+            allSkillsMap.put(name, tmp);
+        }
+
+        Queue<Project> q = new LinkedList<>();
+        for (Project p: projects) q.add(p);
+
+        List<Project> res = new ArrayList<>();
+        int days = 0;
+
+        while (true) {
+            if (q.isEmpty()) break;
+
+            List<Project> parallelProjects = new ArrayList<>();
+
+            List<Project> toRecycle = new ArrayList<>();
+
+            while (!q.isEmpty()) {
+                Project project = q.poll();
+
+                List<Contributor> roles = new ArrayList<>();
+                for (int k=0;k<project.roles;k++) {
+
+                    Skill role = project.rolesSkills[k];
+
+                    boolean found = false;
+                    List<Contributor> cons = allSkillsMap.get(role.name);
+                    for (Contributor con: cons) {
+                        if (con.isTaken) continue;
+
+                        Skill skill = con.getSkill(role.name);
+                        if (skill.level >= role.level) {
+                            con.take();
+                            roles.add(con);
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        // search for mentors in the same team
+                        for (int s=0;s<k;s++) {
+                            Contributor rolCon = roles.get(s);
+                            Skill sk = rolCon.getSkill(role.name);
+
+                            if (sk != null && sk.level >= role.level) {
+                                for (Contributor con: cons) {
+
+                                    if (con.isTaken) continue;
+
+                                    Skill skill = con.getSkill(role.name);
+                                    if (skill != null && skill.level >= role.level) {
+                                        con.take();
+                                        roles.add(con);
+                                        found = true;
+                                        break;
+                                    }
+
+                                }
+                            }
+                            if (found) break;
+                        }
+                    }
+                    if (!found) break;
+
+                }
+
+                if (roles.size() == project.roles) {
+                    // here we fullfill all roles of the project, now it can be done
+                    project.contributors = roles;
+                    parallelProjects.add(project);
+                }
+                else {
+                    // release the contributors because the project is not fulfilled
+                    for (Contributor c: roles) c.release();
+                    toRecycle.add(project);
+                }
+
+//                if (parallelProjects.size() >= MAX_PROJECTS_IN_PARALLEL) {
+//                    System.out.println("Current Letter: " + currentLetter + "; Over Max");
+//                    break;
+//                }
+            }
+
+            if (parallelProjects.size() == 0) {
+                days ++;
+            }
+
+            int maxDays = 0;
+
+            for (Project p: parallelProjects) {
+                p.updateSkills();
+                res.add(p);
+                maxDays = Math.max(p.days, maxDays);
+
+                for (Contributor c: p.contributors) c.release();
+            }
+
+            days += maxDays;
+
+            for (Project p: toRecycle) {
+                if (p.score >= days - p.bestBefore) q.add(p);
+            }
+
+        }
+
+        // printing the results
+        System.out.println(days);
+        out.println(res.size());
+        for (Project p: res) {
+            out.println(p.name);
+            for (Contributor con: p.contributors) out.print(con.name + " ");
+            out.println();
+        }
+    }
     static class Contributor {
         String name;
         int numSkills;
@@ -298,14 +444,6 @@ public class Solution {
             this.contributors = new ArrayList<>();
         }
 
-        public void releaseContributors() {
-            for (Contributor con: contributors) con.release();
-            contributors = new ArrayList<>();
-        }
-        public boolean fulfilled() {
-            return contributors.size() == roles;
-        }
-
         public void updateSkills() {
             for (int i=0;i<roles;i++) {
                 Contributor con = contributors.get(i);
@@ -315,17 +453,19 @@ public class Solution {
         }
 
         public int getTotalScore() {
-//            if (totalScore == -1) {
-//                totalScore = roles;
-//                for (Skill sk: rolesSkills) {
-//                    totalScore += sk.level;
-//                }
-//                totalScore -= score;
-//                totalScore -= bestBefore;
-//                totalScore += days;
-//            }
-//            return totalScore;
-            return score - days + bestBefore;
+
+            if (totalScore == -1) {
+                int levels = 0;
+                for (Skill sk: rolesSkills) {
+                    levels += sk.level;
+                }
+
+                totalScore = (score * 50 + days * 15 + bestBefore * 20 + levels * 6 + roles * 9) / 100;
+            }
+            return totalScore;
+//            return bestBefore; // max score on e
+//            return days;  // gives max score on f
+//            return score - days + bestBefore;
         }
     }
     static class Skill {
