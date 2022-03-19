@@ -89,311 +89,22 @@ public class Solution {
                 return 1;
             });
 
-            solve3(C, P, contributors, projects, out);
+            IStrategy Strategy = new Strategy3();
+
+            List<Project> res = Strategy.solve(C, P, contributors, projects);
+
+            out.println(res.size());
+            for (Project p: res) {
+                out.println(p.name);
+                for (Contributor con: p.contributors) out.print(con.name + " ");
+                out.println();
+            }
+
             out.close();
         }
     }
 
-    static void solve(int C, int P, Contributor[] contributors, Project[] projects, PrintWriter out) {
 
-        List<Project> res = new ArrayList<>();
-        int days = 0;
-        for (int i=0;i<P; i++) {
-
-            List<Contributor> roles = new ArrayList<>();
-            for (int k=0;k<projects[i].roles;k++) {
-                Skill role = projects[i].rolesSkills[k];
-
-                boolean found = false;
-                for (int j=0;j<C;j++) {
-                    if (contributors[j].isTaken) continue;
-
-                    Skill skill = contributors[j].getSkill(role.name);
-                    if (skill != null && skill.level >= role.level) {
-                        contributors[j].take();
-                        roles.add(contributors[j]);
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    for (int s=0;s<k;s++) {
-                        Contributor con = roles.get(s);
-                        Skill sk = con.getSkill(role.name);
-                        if (sk != null && sk.level >= role.level) {
-                            for (int j=0;j<C;j++) {
-                                if (contributors[j].isTaken) continue;
-
-                                Skill skill = contributors[j].getSkill(role.name);
-                                if (skill != null && skill.level == role.level - 1) {
-                                    contributors[j].take();
-                                    roles.add(contributors[j]);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (found) break;
-                    }
-                }
-                if (!found) break;
-            }
-
-            if (roles.size() == projects[i].roles) {
-                projects[i].contributors = roles;
-                projects[i].updateSkills();
-                res.add(projects[i]);
-            }
-            for (Contributor con: roles) con.release();
-            days += projects[i].days;
-        }
-
-        out.println(res.size());
-        for (Project p: res) {
-            out.println(p.name);
-            for (Contributor con: p.contributors) out.print(con.name + " ");
-            out.println();
-        }
-    }
-    static void solve2(int C, int P, Contributor[] contributors, Project[] projects, PrintWriter out) {
-        HashSet<String> allSkillsSet = new HashSet<>();
-        HashMap<String, List<Contributor>> allSkillsMap = new HashMap<>();
-        for (Contributor con: contributors) {
-            for (Skill skill: con.skills) {
-                allSkillsSet.add(skill.name);
-                List<Contributor> tmp = allSkillsMap.get(skill.name);
-                if (tmp == null) tmp = new ArrayList<>();
-
-                tmp.add(con);
-                allSkillsMap.put(skill.name, tmp);
-            }
-        }
-
-        for (String name: allSkillsSet) {
-            List<Contributor> tmp = allSkillsMap.get(name);
-            Collections.sort(tmp, (c1, c2) -> {
-                Skill s1 = c1.getSkill(name);
-                Skill s2 = c2.getSkill(name);
-                if (s1.level == s2.level) return 0;
-                if (s1.level < s2.level) return -1;
-                return 1;
-            });
-            allSkillsMap.put(name, tmp);
-        }
-
-
-        Queue<Project> q = new LinkedList<>();
-        for (Project p: projects) q.add(p);
-
-        List<Project> res = new ArrayList<>();
-        int days = 0;
-
-        while (!q.isEmpty()) {
-            Project project = q.poll();
-
-            List<Contributor> roles = new ArrayList<>();
-            for (int k=0;k<project.roles;k++) {
-
-                Skill role = project.rolesSkills[k];
-
-                boolean found = false;
-                List<Contributor> cons = allSkillsMap.get(role.name);
-                for (Contributor con: cons) {
-                    if (con.isTaken) continue;
-
-                    Skill skill = con.getSkill(role.name);
-                    if (skill.level >= role.level) {
-                        con.take();
-                        roles.add(con);
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    for (int s=0;s<k;s++) {
-                        Contributor rolCon = roles.get(s);
-                        Skill sk = rolCon.getSkill(role.name);
-
-                        if (sk != null && sk.level >= role.level) {
-                            for (Contributor con: cons) {
-
-                                if (con.isTaken) continue;
-
-                                Skill skill = con.getSkill(role.name);
-                                if (skill != null && skill.level >= role.level) {
-                                    con.take();
-                                    roles.add(con);
-                                    found = true;
-                                    break;
-                                }
-
-                            }
-                        }
-                        if (found) break;
-                    }
-                }
-                if (!found) break;
-            }
-
-            if (roles.size() == project.roles) {
-                project.contributors = roles;
-                project.updateSkills();
-                res.add(project);
-            }
-            else {
-                if (project.score >= days - project.bestBefore) q.add(project);
-            }
-            for (Contributor con: roles) con.release();
-            days += project.days;
-        }
-        System.out.println(days);
-        out.println(res.size());
-        for (Project p: res) {
-            out.println(p.name);
-            for (Contributor con: p.contributors) out.print(con.name + " ");
-            out.println();
-        }
-    }
-    static void solve3(int C, int P, Contributor[] contributors, Project[] projects, PrintWriter out) {
-
-        HashSet<String> allSkillsSet = new HashSet<>();
-        HashMap<String, List<Contributor>> allSkillsMap = new HashMap<>();
-        for (Contributor con: contributors) {
-            for (Skill skill: con.skills) {
-                allSkillsSet.add(skill.name);
-                List<Contributor> tmp = allSkillsMap.get(skill.name);
-                if (tmp == null) tmp = new ArrayList<>();
-
-                tmp.add(con);
-                allSkillsMap.put(skill.name, tmp);
-            }
-        }
-
-        for (String name: allSkillsSet) {
-            List<Contributor> tmp = allSkillsMap.get(name);
-            Collections.sort(tmp, (c1, c2) -> {
-                Skill s1 = c1.getSkill(name);
-                Skill s2 = c2.getSkill(name);
-                if (s1.level == s2.level) return 0;
-                if (s1.level < s2.level) return -1;
-                return 1;
-            });
-            allSkillsMap.put(name, tmp);
-        }
-
-        Queue<Project> q = new LinkedList<>();
-        for (Project p: projects) q.add(p);
-
-        List<Project> res = new ArrayList<>();
-        int days = 0;
-
-        while (true) {
-            if (q.isEmpty()) break;
-
-            List<Project> parallelProjects = new ArrayList<>();
-
-            List<Project> toRecycle = new ArrayList<>();
-
-            while (!q.isEmpty()) {
-                Project project = q.poll();
-
-                List<Contributor> roles = new ArrayList<>();
-                for (int k=0;k<project.roles;k++) {
-
-                    Skill role = project.rolesSkills[k];
-
-                    boolean found = false;
-                    List<Contributor> cons = allSkillsMap.get(role.name);
-                    for (Contributor con: cons) {
-                        if (con.isTaken) continue;
-
-                        Skill skill = con.getSkill(role.name);
-                        if (skill.level >= role.level) {
-                            con.take();
-                            roles.add(con);
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found) {
-                        // search for mentors in the same team
-                        for (int s=0;s<k;s++) {
-                            Contributor rolCon = roles.get(s);
-                            Skill sk = rolCon.getSkill(role.name);
-
-                            if (sk != null && sk.level >= role.level) {
-                                for (Contributor con: cons) {
-
-                                    if (con.isTaken) continue;
-
-                                    Skill skill = con.getSkill(role.name);
-                                    if (skill != null && skill.level >= role.level) {
-                                        con.take();
-                                        roles.add(con);
-                                        found = true;
-                                        break;
-                                    }
-
-                                }
-                            }
-                            if (found) break;
-                        }
-                    }
-                    if (!found) break;
-
-                }
-
-                if (roles.size() == project.roles) {
-                    // here we fullfill all roles of the project, now it can be done
-                    project.contributors = roles;
-                    parallelProjects.add(project);
-                }
-                else {
-                    // release the contributors because the project is not fulfilled
-                    for (Contributor c: roles) c.release();
-                    toRecycle.add(project);
-                }
-
-//                if (parallelProjects.size() >= MAX_PROJECTS_IN_PARALLEL) {
-//                    System.out.println("Current Letter: " + currentLetter + "; Over Max");
-//                    break;
-//                }
-            }
-
-            if (parallelProjects.size() == 0) {
-                days ++;
-            }
-
-            int maxDays = 0;
-
-            for (Project p: parallelProjects) {
-                p.updateSkills();
-                res.add(p);
-                maxDays = Math.max(p.days, maxDays);
-
-                for (Contributor c: p.contributors) c.release();
-            }
-
-            days += maxDays;
-
-            for (Project p: toRecycle) {
-                if (p.score >= days - p.bestBefore) q.add(p);
-            }
-
-        }
-
-        // printing the results
-        System.out.println(days);
-        out.println(res.size());
-        for (Project p: res) {
-            out.println(p.name);
-            for (Contributor con: p.contributors) out.print(con.name + " ");
-            out.println();
-        }
-    }
     static class Contributor {
         String name;
         int numSkills;
@@ -477,6 +188,304 @@ public class Solution {
             this.level = level;
         }
     }
+
+    static interface IStrategy {
+        public List<Project> solve(int C, int P, Contributor[] contributors, Project[] projects);
+    }
+
+    static class Strategy1 implements IStrategy {
+        public List<Project> solve(int C, int P, Contributor[] contributors, Project[] projects) {
+
+            List<Project> res = new ArrayList<>();
+            int days = 0;
+            for (int i=0;i<P; i++) {
+
+                List<Contributor> roles = new ArrayList<>();
+                for (int k=0;k<projects[i].roles;k++) {
+                    Skill role = projects[i].rolesSkills[k];
+
+                    boolean found = false;
+                    for (int j=0;j<C;j++) {
+                        if (contributors[j].isTaken) continue;
+
+                        Skill skill = contributors[j].getSkill(role.name);
+                        if (skill != null && skill.level >= role.level) {
+                            contributors[j].take();
+                            roles.add(contributors[j]);
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        for (int s=0;s<k;s++) {
+                            Contributor con = roles.get(s);
+                            Skill sk = con.getSkill(role.name);
+                            if (sk != null && sk.level >= role.level) {
+                                for (int j=0;j<C;j++) {
+                                    if (contributors[j].isTaken) continue;
+
+                                    Skill skill = contributors[j].getSkill(role.name);
+                                    if (skill != null && skill.level == role.level - 1) {
+                                        contributors[j].take();
+                                        roles.add(contributors[j]);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (found) break;
+                        }
+                    }
+                    if (!found) break;
+                }
+
+                if (roles.size() == projects[i].roles) {
+                    projects[i].contributors = roles;
+                    projects[i].updateSkills();
+                    res.add(projects[i]);
+                }
+                for (Contributor con: roles) con.release();
+                days += projects[i].days;
+            }
+
+            return res;
+        }
+    }
+
+    static class Strategy2 implements IStrategy {
+        public List<Project> solve(int C, int P, Contributor[] contributors, Project[] projects) {
+            HashSet<String> allSkillsSet = new HashSet<>();
+            HashMap<String, List<Contributor>> allSkillsMap = new HashMap<>();
+            for (Contributor con: contributors) {
+                for (Skill skill: con.skills) {
+                    allSkillsSet.add(skill.name);
+                    List<Contributor> tmp = allSkillsMap.get(skill.name);
+                    if (tmp == null) tmp = new ArrayList<>();
+
+                    tmp.add(con);
+                    allSkillsMap.put(skill.name, tmp);
+                }
+            }
+
+            for (String name: allSkillsSet) {
+                List<Contributor> tmp = allSkillsMap.get(name);
+                Collections.sort(tmp, (c1, c2) -> {
+                    Skill s1 = c1.getSkill(name);
+                    Skill s2 = c2.getSkill(name);
+                    if (s1.level == s2.level) return 0;
+                    if (s1.level < s2.level) return -1;
+                    return 1;
+                });
+                allSkillsMap.put(name, tmp);
+            }
+
+
+            Queue<Project> q = new LinkedList<>();
+            for (Project p: projects) q.add(p);
+
+            List<Project> res = new ArrayList<>();
+            int days = 0;
+
+            while (!q.isEmpty()) {
+                Project project = q.poll();
+
+                List<Contributor> roles = new ArrayList<>();
+                for (int k=0;k<project.roles;k++) {
+
+                    Skill role = project.rolesSkills[k];
+
+                    boolean found = false;
+                    List<Contributor> cons = allSkillsMap.get(role.name);
+                    for (Contributor con: cons) {
+                        if (con.isTaken) continue;
+
+                        Skill skill = con.getSkill(role.name);
+                        if (skill.level >= role.level) {
+                            con.take();
+                            roles.add(con);
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        for (int s=0;s<k;s++) {
+                            Contributor rolCon = roles.get(s);
+                            Skill sk = rolCon.getSkill(role.name);
+
+                            if (sk != null && sk.level >= role.level) {
+                                for (Contributor con: cons) {
+
+                                    if (con.isTaken) continue;
+
+                                    Skill skill = con.getSkill(role.name);
+                                    if (skill != null && skill.level >= role.level) {
+                                        con.take();
+                                        roles.add(con);
+                                        found = true;
+                                        break;
+                                    }
+
+                                }
+                            }
+                            if (found) break;
+                        }
+                    }
+                    if (!found) break;
+                }
+
+                if (roles.size() == project.roles) {
+                    project.contributors = roles;
+                    project.updateSkills();
+                    res.add(project);
+                }
+                else {
+                    if (project.score >= days - project.bestBefore) q.add(project);
+                }
+                for (Contributor con: roles) con.release();
+                days += project.days;
+            }
+
+            return res;
+        }
+    }
+
+    static class Strategy3 implements IStrategy {
+        public List<Project> solve(int C, int P, Contributor[] contributors, Project[] projects) {
+
+            HashSet<String> allSkillsSet = new HashSet<>();
+            HashMap<String, List<Contributor>> allSkillsMap = new HashMap<>();
+            for (Contributor con: contributors) {
+                for (Skill skill: con.skills) {
+                    allSkillsSet.add(skill.name);
+                    List<Contributor> tmp = allSkillsMap.get(skill.name);
+                    if (tmp == null) tmp = new ArrayList<>();
+
+                    tmp.add(con);
+                    allSkillsMap.put(skill.name, tmp);
+                }
+            }
+
+            for (String name: allSkillsSet) {
+                List<Contributor> tmp = allSkillsMap.get(name);
+                Collections.sort(tmp, (c1, c2) -> {
+                    Skill s1 = c1.getSkill(name);
+                    Skill s2 = c2.getSkill(name);
+                    if (s1.level == s2.level) return 0;
+                    if (s1.level < s2.level) return -1;
+                    return 1;
+                });
+                allSkillsMap.put(name, tmp);
+            }
+
+            Queue<Project> q = new LinkedList<>();
+            for (Project p: projects) q.add(p);
+
+            List<Project> res = new ArrayList<>();
+            int days = 0;
+
+            while (true) {
+                if (q.isEmpty()) break;
+
+                List<Project> parallelProjects = new ArrayList<>();
+
+                List<Project> toRecycle = new ArrayList<>();
+
+                while (!q.isEmpty()) {
+                    Project project = q.poll();
+
+                    List<Contributor> roles = new ArrayList<>();
+                    for (int k=0;k<project.roles;k++) {
+
+                        Skill role = project.rolesSkills[k];
+
+                        boolean found = false;
+                        List<Contributor> cons = allSkillsMap.get(role.name);
+                        for (Contributor con: cons) {
+                            if (con.isTaken) continue;
+
+                            Skill skill = con.getSkill(role.name);
+                            if (skill.level >= role.level) {
+                                con.take();
+                                roles.add(con);
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
+                            // search for mentors in the same team
+                            for (int s=0;s<k;s++) {
+                                Contributor rolCon = roles.get(s);
+                                Skill sk = rolCon.getSkill(role.name);
+
+                                if (sk != null && sk.level >= role.level) {
+                                    for (Contributor con: cons) {
+
+                                        if (con.isTaken) continue;
+
+                                        Skill skill = con.getSkill(role.name);
+                                        if (skill != null && skill.level >= role.level) {
+                                            con.take();
+                                            roles.add(con);
+                                            found = true;
+                                            break;
+                                        }
+
+                                    }
+                                }
+                                if (found) break;
+                            }
+                        }
+                        if (!found) break;
+
+                    }
+
+                    if (roles.size() == project.roles) {
+                        // here we fullfill all roles of the project, now it can be done
+                        project.contributors = roles;
+                        parallelProjects.add(project);
+                    }
+                    else {
+                        // release the contributors because the project is not fulfilled
+                        for (Contributor c: roles) c.release();
+                        toRecycle.add(project);
+                    }
+
+//                if (parallelProjects.size() >= MAX_PROJECTS_IN_PARALLEL) {
+//                    System.out.println("Current Letter: " + currentLetter + "; Over Max");
+//                    break;
+//                }
+                }
+
+                if (parallelProjects.size() == 0) {
+                    days ++;
+                }
+
+                int maxDays = 0;
+
+                for (Project p: parallelProjects) {
+                    p.updateSkills();
+                    res.add(p);
+                    maxDays = Math.max(p.days, maxDays);
+
+                    for (Contributor c: p.contributors) c.release();
+                }
+
+                days += maxDays;
+
+                for (Project p: toRecycle) {
+                    if (p.score >= days - p.bestBefore) q.add(p);
+                }
+
+            }
+
+            // printing the results
+            return res;
+        }
+    }
+
     static class InputReader {
         public BufferedReader reader;
         public StringTokenizer tokenizer;
