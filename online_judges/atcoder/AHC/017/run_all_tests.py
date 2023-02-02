@@ -1,11 +1,19 @@
 from json import load, dump
-from os.path import dirname, join
+from os.path import dirname, join, abspath
 import subprocess
 
 
-total = 0
-FOLDER = dirname(__name__)
+FOLDER = dirname(__file__)
 
+
+def compile_file():
+  solution = join(FOLDER, 'Solution.java')
+  command = f"javac {solution}"
+  p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  for line in p.stdout.readlines():
+    l = line.decode("utf-8").strip('\n')
+    print(l)
+    
 
 def get_score(line):
     a, b = line.split(' = ')
@@ -28,36 +36,42 @@ def save_score(score):
         print("Not good !!!")
 
 
-for i in range(100):
+def run_tests():
+    total = 0
+    for i in range(100):
     
-    in_file = join(FOLDER, 'in', f'{i:0>4}.txt')
-    out_file = join(FOLDER, 'out', f'{i:0>4}.txt')
+        in_file = join(FOLDER, 'in', f'{i:0>4}.txt')
+        out_file = join(FOLDER, 'out', f'{i:0>4}.txt')
 
-    solution = join(FOLDER, 'Solution')
-    tester = join(FOLDER, 'vis.exe')
+        solution = join(FOLDER, 'Solution')
+        tester = join(FOLDER, 'vis.exe')
 
-    print("\nTest Case ", i)
+        print("\nTest Case ", i)
     
-    solution_command = f"java {solution} < {in_file} > {out_file}"
-    p = subprocess.Popen(solution_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    for line in p.stdout.readlines():
-        l = line.decode("utf-8").strip('\n')
-        print(l)
+        solution_command = f"java {solution} < {in_file} > {out_file}"
+        p = subprocess.Popen(solution_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for line in p.stdout.readlines():
+            l = line.decode("utf-8").strip('\n')
+            print(l)
     
-    score_command = f"{tester} {in_file} {out_file}"
-    p = subprocess.Popen(score_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    for line in p.stdout.readlines():
-        l = line.decode("utf-8").strip('\n')
-        print(l)
-        if 'Illegal' in l:
-            raise Exception('Wrong Answer')
+        score_command = f"{tester} {in_file} {out_file}"
+        p = subprocess.Popen(score_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for line in p.stdout.readlines():
+            l = line.decode("utf-8").strip('\n')
+            print(l)
+            if 'Illegal' in l:
+                raise Exception('Wrong Answer')
 
-        if 'Score' in l:
-            total += get_score(l)
+            if 'Score' in l:
+                total += get_score(l)
 
-    retval = p.wait()
+        retval = p.wait()
+
+    print('=' * 100)
+    print('Total Score = ', total)
+    save_score(total)
 
 
-print('=' * 100)
-print('Total Score = ', total)
-save_score(total)
+if '__main__' == __name__:
+    compile_file()
+    run_tests()
