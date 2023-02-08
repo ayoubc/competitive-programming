@@ -10,6 +10,7 @@ public class Solution {
     static Edge[] edges;
     static Coord[] coords;
     static int OO = 1000000000;
+    static int[][] adjMatrix;
 
     static char[][] grid;
 
@@ -17,10 +18,13 @@ public class Solution {
 
         InputStream is;
         OutputStream os;
+        boolean debug = true;
         try {
-            is = new FileInputStream(".\\src\\ahc017\\in\\0036.txt");
-            os = new FileOutputStream(".\\src\\ahc017\\out\\0036.txt");
+            String filename = "0002.txt";
+            is = new FileInputStream(".\\src\\ahc017\\in\\" + filename);
+            os = new FileOutputStream(".\\src\\ahc017\\out\\" + filename);
         } catch (Exception e) {
+            debug = false;
             is = System.in;
             os = System.out;
         }
@@ -34,20 +38,29 @@ public class Solution {
         graph = new List[N+1];
         edges = new Edge[M];
         coords = new Coord[N];
-
+        adjMatrix = new int[N+1][N+1];
+        for (int i=0;i<=N;i++) {
+            for (int j=0;j<=N;j++) adjMatrix[i][j] = -1;
+        }
         for (int i=0;i<M;i++) {
             int u = in.nextInt();
             int v = in.nextInt();
             int w = in.nextInt();
             addEdge(u, v, w);
             edges[i] = new Edge(u, v, w, i);
+            adjMatrix[u][v] = i;
+            adjMatrix[v][u] = i;
         }
         for (int i=0;i<N;i++) {
             coords[i] = new Coord(in.nextInt(), in.nextInt(), i+1);
         }
 
         Strategy strategy = new Strategy2(N, M, D, K);
+        long start = System.currentTimeMillis();
         int[] r = strategy.solve();
+        long end = System.currentTimeMillis();
+
+        if (debug) System.out.println("Computation Time:" + (end - start));
         for (int i=0;i<M;i++) {
             out.print(r[i] + " ");
         }
@@ -164,10 +177,65 @@ public class Solution {
         int[][] d;
         int[] sources;
         int center;
+        double T = 100000;
+        double alpha = 0.89;
+        int L = 10;
+
+        boolean[] visited;
+        int[] tin;
+        int[] low;
+        int timer;
+        int cc; // indicates number of vertices in same connected component
+        boolean finished = false;
+
+        int[] parent;
+        int[] rank;
+
         Strategy2(int _N, int _M, int _D, int _K) {
             super(_N, _M, _D, _K);
         }
+        public int[] solve() {
+            parent = new int[N+1];
+            rank = new int[N+1];
+            sources = getSources();
+            d = new int[sources.length][];
+            for (int i=0;i<sources.length;i++) d[i] = getShortestDistancesAfterRepair(null, -1, sources[i]);
+            visited = new boolean[N+1];
+            double temp = T;
 
+            // random state
+            State currentState = new State();
+
+            State best = new State(currentState.r);
+
+            while (temp > 1) {
+                for (int l=1;l<=L;l++) {
+                    State newState = getNewStateFrom(currentState);
+
+                    double currentF = currentState.getF();
+                    double newF = newState.getF();
+                    if (acceptance(currentF, newF, temp) > Math.random()) {
+                        currentState = newState;
+                    }
+
+                    if (best.getF() > currentState.getF()) {
+                        best = currentState;
+                    }
+                }
+                temp *= alpha;
+            }
+            return best.r;
+        }
+
+        public void dfs(int v, State state, int day) {
+            visited[v] = true;
+            cc++;
+            for (P pair : graph[v]) {
+                int to = pair.u;
+                if(state.map[adjMatrix[v][to]] == day) continue;
+                if (!visited[to]) dfs(to, state, day);
+            }
+        }
         public int[] getShortestDistancesAfterRepair(State state, int day, int source) {
             int[] newD = new int[N+1];
             for (int i=1;i<=N;i++) newD[i] = OO;
@@ -182,12 +250,11 @@ public class Solution {
                 if (p.dist != newD[p.u])
                     continue;
 
-                if (graph[p.u] == null) continue;
                 for (P edge : graph[p.u]) {
                     int to = edge.u;
                     int len = edge.dist;
                     if (state != null) {
-                        len = state.map[p.u][to] == day ? OO : edge.dist;
+                        len = state.map[adjMatrix[p.u][to]] == day ? OO : edge.dist;
                     }
 
                     if (newD[p.u] + len < newD[to]) {
@@ -198,16 +265,19 @@ public class Solution {
             }
             return newD;
         }
-        public int getSource1() {
-            return randomInt(1, N);
+        public int[] getSource1() {
+            return new int[] {randomInt(1, N)};
         }
-        public int getSource() {
+        public int[] getSources2() {
             Coord[] tmpCoords = coords.clone();
             Arrays.sort(tmpCoords);
-            return tmpCoords[N/2].index;
+            return new int[] {tmpCoords[N/2].index};
         }
-        public int[] getSources() {
-            int[] res = new int[D >= 15 ? 5 : 15];
+        public int[] getSources4() {
+            return new int[] {getVertexCenter()};
+        }
+        public int[] getSources3() {
+            int[] res = new int[5];
             Coord[] tmpCoords = coords.clone();
             Arrays.sort(tmpCoords);
             res[0] = tmpCoords[0].index;
@@ -219,27 +289,23 @@ public class Solution {
             });
             res[2] = tmpCoords[0].index;
             res[3] = tmpCoords[N-1].index;
-            center = getVertexCenter();
-            res[4] = center;
+            res[4] = getVertexCenter();
 
-            // pick another arbitrary ten if D < 10
-            for (int i=5;i<res.length;i++) {
-                while (true) {
-                    int index = randomInt(1, N);
-                    boolean ok = true;
-                    for (int j=0;j<i;j++) {
-                        if (res[j] == index) {
-                            ok = false;
-                            break;
-                        }
-                    }
-                    if (ok) {
-                        res[i] = index;
-                        break;
-                    }
-                }
-            }
             return res;
+        }
+        public int[] getSources() {
+            // take the points with less total of weights
+            P[] degree = new P[N];
+            for (int i=0;i<N;i++) degree[i] = new P(0, i+1);
+            for (int i=0;i<M;i++) {
+                degree[edges[i].u-1].dist += edges[i].w;
+                degree[edges[i].v-1].dist += edges[i].w;
+            }
+            Arrays.sort(degree, (p1, p2) -> Integer.compare(p1.dist, p2.dist));
+//            int[] res = new int[Math.min(30 / D, 4)];
+//            int[] res = new int[4];
+//            for (int i=0;i<res.length;i++) res[i] = degree[i].u;
+            return new int[] {degree[0].u};
         }
         public int getVertexCenter() {
             long[][] dists = new long[N+1][N+1];
@@ -261,43 +327,12 @@ public class Solution {
             }
             return index;
         }
-        public int[] solve() {
-//            source = getSource();
-//            center = getVertexCenter();
-            sources = getSources();
-//            sources = new int[] {center};
-            d = new int[sources.length][];
-            for (int i=0;i<sources.length;i++) d[i] = getShortestDistancesAfterRepair(null, -1, sources[i]);
 
-            double temp = 100000;
-            double alpha = 0.95;
-
-            // random state
-            State currentState = new State();
-
-            State best = new State(currentState.r);
-
-            while (temp > 1) {
-                State newState = getNewStateFrom(currentState);
-
-                double currentF = currentState.getF();
-                double newF = newState.getF();
-                if (acceptance(currentF, newF, temp) > Math.random()) {
-                    currentState = newState;
-                }
-
-                if (best.getF() > currentState.getF()) {
-                    best = currentState;
-                }
-
-                temp *= alpha;
-                //System.out.println(temp);
-            }
-            return best.r;
-        }
         public class State {
             int[] r;
-            int[][] map;
+
+            // map each edge with day of repair
+            int[] map;
             double F = -1;
             State(int[] _r) {
                 // copy from a state
@@ -318,11 +353,11 @@ public class Solution {
             public int[] getInitialState() {
                 int[] occ = new int[D+1];
                 int[] res = new int[M];
-                int limit = (int) Math.ceil(M/D);
+                int limit = (int) Math.ceil(M/D) + 1;
                 for (int i=0;i<M;i++) {
                     while (true) {
                         int d = randomInt(1, D);
-                        if (occ[d] <= limit) {
+                        if (occ[d] < limit) {
                             res[i] = d;
                             occ[d] ++;
                             break;
@@ -331,19 +366,43 @@ public class Solution {
                 }
                 return res;
             }
-            public int[] getInitialState2() {
+            public int[] getInitialState1() {
                 int[] res = new int[M];
+                Edge[] tmpEdges = edges.clone();
+                Arrays.sort(tmpEdges, (e1, e2) -> {
+                    return Integer.compare(e1.w, e2.w) * -1;
+                });
+                int j = 1;
+                for (int i=0;i<M;i++) {
+                    res[edges[i].index] = j;
+                    j ++;
+                    if (j > D) j = 1;
+                }
                 return res;
             }
             public void mapEdgesWithDays() {
-                map = new int[N+1][N+1];
+                map = new int[M];
                 for (int i=0;i<M;i++) {
-                    map[edges[i].u][edges[i].v] = r[i];
-                    map[edges[i].v][edges[i].u] = r[i];
+                    int u = edges[i].u;
+                    int v = edges[i].v;
+                    map[adjMatrix[u][v]] = r[i];
                 }
             }
         }
         public State getNewStateFrom(State state) {
+            // just swap two random (different) days of two edges
+            State newState = new State(state.r);
+            int index1 = randomInt(0, newState.r.length-1);
+            int index2 = index1;
+            while (newState.r[index1] == newState.r[index2])
+                index2 = randomInt(0, newState.r.length-1);
+            int c = newState.r[index1];
+            newState.r[index1] = newState.r[index2];
+            newState.r[index2] = c;
+            return newState;
+        }
+        public State getNewStateFrom1(State state) {
+            // shuffle the days of edges
             List<Integer> tmp = new ArrayList<>();
             for (int i=0;i<M;i++) tmp.add(state.r[i]);
             Collections.shuffle(tmp);
@@ -371,9 +430,9 @@ public class Solution {
                 }
             }
             double res = 0.0;
-            for (int k=1;k<=D;k++) f[k] /= (4 * (N-1));
+            for (int k=1;k<=D;k++) f[k] /= (sources.length * (N-1));
             for (int k=1;k<=D;k++) res += f[k];
-            return 1000 * res / D;
+            return 1000 * res / D + fitness1(state) + fitness4(state);
         }
         public double fitness1(State state) {
             double[] f = new double[D+1];
@@ -386,10 +445,10 @@ public class Solution {
             }
             return (res * 1000) / (D * (D - 1));
         }
+
         public double fitness2(State state) {
             double[] f = new double[D+1];
-            int[][] penalties = new int[D+1][N+1];
-            int maxEdges = 2;
+            int maxEdges = 3;
             for (int k=1;k<=D;k++) {
                 int[] occ = new int[M+1];
                 for (int i=0;i<M;i++) {
@@ -397,7 +456,7 @@ public class Solution {
                     int v = edges[i].v;
                     if (state.r[i] == k) {
                         if (occ[u] > maxEdges || occ[v] > maxEdges){
-                            penalties[k][u] = OO;
+                            f[k] += OO;
                         }
                         occ[u] ++;
                         occ[v] ++;
@@ -405,15 +464,99 @@ public class Solution {
                 }
             }
             for (int i=0;i<M;i++) {
-                int day = state.r[i];
-                int u = edges[i].u;
-                f[day] += edges[i].w + penalties[day][u];
+                f[state.r[i]] += edges[i].w;
             }
             double res = 0;
             for (int i=1;i<=D;i++) {
                 for (int j=1;j<=D;j++) res += Math.abs(f[i]-f[j]);
             }
             return (res * 1000) / (D * (D - 1));
+        }
+        public double fitness3(State state) {
+            double[] f = new double[D+1];
+//            state.mapEdgesWithDays();
+            for (int k=1;k<=D;k++) {
+                List<Integer> connectedCompo = new ArrayList<>();
+                for (int j=1;j<=N;j++) visited[j] = false;
+                for (int j=1;j<=N;j++) {
+                    if (!visited[j]) {
+
+                        cc = 0;
+                        dfs(j, state, k);
+                        connectedCompo.add(cc);
+                    }
+                }
+                long A = 0;
+                double B = 0;
+
+                // connectedCompo.size() is the number of connected components
+                for (int ii=0;ii<connectedCompo.size();ii++) {
+                    A += connectedCompo.get(ii);
+                    B += square(connectedCompo.get(ii));
+                }
+                f[k] += (square(A) - B) / 2;
+                f[k] *= OO;
+                f[k] /= N * (N-1);
+            }
+            double res = 0;
+            for (int i=1;i<=D;i++) {
+                for (int j=1;j<=D;j++) {
+                    res += Math.abs(f[i] - f[j]);
+                }
+            }
+            return (res * 1000) / (D * (D - 1));
+        }
+        public double fitness4(State state) {
+            double[] f = new double[D+1];
+//            state.mapEdgesWithDays();
+            for (int k=1;k<=D;k++) {
+                f[k] += kruskalMST(state, k);
+            }
+            double res = 0;
+            for (int i=1;i<=D;i++) {
+                for (int j=1;j<=D;j++) res += Math.abs(f[i]-f[j]);
+            }
+            return (res * 1000) / (D * (D - 1));
+        }
+        public void makeSet(int v) {
+            parent[v] = v;
+            rank[v] = 0;
+        }
+        public int findSet(int v) {
+            if (v == parent[v])
+                return v;
+            return parent[v] = findSet(parent[v]);
+        }
+        public void unionSets(int a, int b) {
+            a = findSet(a);
+            b = findSet(b);
+            if (a != b) {
+                if (rank[a] < rank[b]) {
+                    int c = a;
+                    a = b;
+                    b = c;
+                }
+                parent[b] = a;
+                if (rank[a] == rank[b])
+                    rank[a]++;
+            }
+        }
+        private double kruskalMST(State state, int day) {
+            Edge[] tmpEdges = edges.clone();
+            for (int i=0;i<M;i++) {
+                if(state.map[i] == day) tmpEdges[i].w = OO;
+            }
+
+            for (int i = 1; i <= N; i++) makeSet(i);
+            Arrays.sort(tmpEdges);
+            double cost = 0;
+            for (Edge e : tmpEdges) {
+                if (findSet(e.u) != findSet(e.v)) {
+                    cost += e.w;
+                    unionSets(e.u, e.v);
+                }
+            }
+            return cost;
         }
     }
     static class InputReader {
