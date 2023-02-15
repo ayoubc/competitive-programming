@@ -173,18 +173,48 @@ public class Solution {
             return r;
         }
     }
+    static class Strategy3 extends Strategy {
+        Strategy3(int _N, int _M, int _D, int _K) {
+            super(_N, _M, _D, _K);
+        }
+        public int[] solve() {
+            int[] res = new int[M];
+            P[] days = new P[D];
+            int[] occ = new int[D+1];
+            for (int k=0;k<D;k++) days[k] = new P(0, k+1);
+            Edge[] tmpEdges = edges.clone();
+            Arrays.sort(tmpEdges, (e1, e2) -> {
+                return Integer.compare(e1.w, e2.w) * -1;
+            });
+            for (int i=0;i<M;i++) {
+                Arrays.sort(days, (d1, d2) -> {
+                    return Integer.compare(d1.dist, d2.dist);
+                });
+                int edgeIndex = tmpEdges[i].index;
+                for (int j=0;j<D;j++) {
+                    int day = days[j].u;
+                    if (occ[day] < K) {
+                        occ[day] ++;
+                        res[edgeIndex] = day;
+                        days[j].dist += tmpEdges[i].w;
+                        break;
+                    }
+                }
+            }
+            return res;
+        }
+    }
     static class Strategy2 extends Strategy {
         int[][] d;
         int[] sources;
-        int center;
-        double T = 100000;
-        double alpha = 0.89;
-        int L = 10;
+        double T = 2000;
+        double alpha = 0.85;
+        int L = 100;
+        double TL = 5850;
+        double START = System.currentTimeMillis();
 
         boolean[] visited;
-        int[] tin;
-        int[] low;
-        int timer;
+
         int cc; // indicates number of vertices in same connected component
         boolean finished = false;
 
@@ -193,6 +223,12 @@ public class Solution {
 
         Strategy2(int _N, int _M, int _D, int _K) {
             super(_N, _M, _D, _K);
+        }
+        public boolean isTLE() {
+            return System.currentTimeMillis() - START > TL;
+        }
+        public double currentTime() {
+            return System.currentTimeMillis();
         }
         public int[] solve() {
             parent = new int[N+1];
@@ -206,10 +242,11 @@ public class Solution {
             // random state
             State currentState = new State();
 
-            State best = new State(currentState.r);
+            State best = new State(currentState);
 
-            while (temp > 1) {
+            while (temp > 1 && !isTLE()) {
                 for (int l=1;l<=L;l++) {
+                    if (isTLE()) break;
                     State newState = getNewStateFrom(currentState);
 
                     double currentF = currentState.getF();
@@ -302,10 +339,9 @@ public class Solution {
                 degree[edges[i].v-1].dist += edges[i].w;
             }
             Arrays.sort(degree, (p1, p2) -> Integer.compare(p1.dist, p2.dist));
-//            int[] res = new int[Math.min(30 / D, 4)];
-//            int[] res = new int[4];
-//            for (int i=0;i<res.length;i++) res[i] = degree[i].u;
-            return new int[] {degree[0].u};
+            int[] res = new int[4];
+            for (int i=0;i<res.length;i++) res[i] = degree[i].u;
+            return res;
         }
         public int getVertexCenter() {
             long[][] dists = new long[N+1][N+1];
@@ -333,13 +369,20 @@ public class Solution {
 
             // map each edge with day of repair
             int[] map;
-            double F = -1;
+            double F;
             State(int[] _r) {
                 // copy from a state
                 r = _r.clone();
+                F = -1;
+            }
+            State(State state) {
+                // copy from a state
+                r = state.r.clone();
+                F = -1;
             }
             State() {
                 r = getInitialState();
+                F = -1;
             }
             public void setF(double _F) {
                 F = _F;
@@ -350,7 +393,7 @@ public class Solution {
                 }
                 return F;
             }
-            public int[] getInitialState() {
+            public int[] getInitialState2() {
                 int[] occ = new int[D+1];
                 int[] res = new int[M];
                 int limit = (int) Math.ceil(M/D) + 1;
@@ -379,6 +422,10 @@ public class Solution {
                     if (j > D) j = 1;
                 }
                 return res;
+            }
+            public int[] getInitialState() {
+                Strategy s = new Strategy3(N, M, D, K);
+                return s.solve();
             }
             public void mapEdgesWithDays() {
                 map = new int[M];
@@ -432,7 +479,7 @@ public class Solution {
             double res = 0.0;
             for (int k=1;k<=D;k++) f[k] /= (sources.length * (N-1));
             for (int k=1;k<=D;k++) res += f[k];
-            return 1000 * res / D + fitness1(state) + fitness4(state);
+            return 1000 * res / D + fitness2(state) + fitness4(state);
         }
         public double fitness1(State state) {
             double[] f = new double[D+1];
