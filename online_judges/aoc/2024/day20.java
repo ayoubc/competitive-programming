@@ -12,6 +12,8 @@ public class Main {
     static char[][] grid;
     static int N;
     static int M;
+    static int[][] visited;
+    static int time = 1;
     static InputReader in;
     static PrintWriter out;
 
@@ -53,6 +55,7 @@ public class Main {
             }
         }
         int saves = 100;
+        visited = new int[N][M];
         P orgPath = bfsPath(start, end);
         int ans = 0;
 
@@ -81,10 +84,8 @@ public class Main {
         P res = null;
         Queue<P> q = new LinkedList<>();
         P p = new P(start, new ArrayList<>());
-
         p.path.add(start);
-        boolean[][] visited = new boolean[N][M];
-        visited[start.i][start.j] = true;
+        visited[start.i][start.j] = ++time;
         q.add(p);
         while (!q.isEmpty()) {
             P cur = q.poll();
@@ -97,8 +98,8 @@ public class Main {
                 int jj = dy[k]+cur.p.j;
                 if (ii < 0 || ii >= N || jj < 0 || jj >= M || grid[ii][jj] == '#') continue;
 
-                if (!visited[ii][jj]) {
-                    visited[ii][jj] = true;
+                if (visited[ii][jj] != time) {
+                    visited[ii][jj] = time;
                     Point nxt = new Point(ii, jj);
                     List<Point> path = new ArrayList<>(cur.path);
 
@@ -113,8 +114,7 @@ public class Main {
     public static int bfsSteps(Point start, Point end) {
         int res = -1;
         Queue<PP> q = new LinkedList<>();
-        boolean[][] visited = new boolean[N][M];
-        visited[start.i][start.j] = true;
+        visited[start.i][start.j] = ++time;
         q.add(new PP(start, 0));
         while (!q.isEmpty()) {
             PP cur = q.poll();
@@ -127,8 +127,8 @@ public class Main {
                 int jj = dy[k]+cur.p.j;
                 if (ii < 0 || ii >= N || jj < 0 || jj >= M || grid[ii][jj] == '#') continue;
 
-                if (!visited[ii][jj]) {
-                    visited[ii][jj] = true;
+                if (visited[ii][jj] != time) {
+                    visited[ii][jj] = time;
                     q.add(new PP(new Point(ii, jj), cur.steps+1));
                 }
             }
@@ -137,6 +137,9 @@ public class Main {
     }
 
     public static long part2(List<String> lines) {
+        // I had to look to hint, because I calculated cheats from any point on path to any point with
+        // manhaten dist less then max cheats, I was getting more number of cheats
+        // but it turns out, i only had to compute cheats from a point on path to another point on path
         grid = getGrid(lines);
         N = grid.length;
         M = grid[0].length;
@@ -148,127 +151,40 @@ public class Main {
                 if(grid[i][j] == 'E') end = new Point(i, j);
             }
         }
-        int saves = 50;
+        visited = new int[N][M];
+        int saves = 100;
         int maxCheats = 20;
         P orgPath = bfsPath(start, end);
-//        int ans = 0;
-//        Map<Integer, Integer> occ = new HashMap<>();
-//        for(int i=0;i<orgPath.path.size();i++) {
-//            Point p = orgPath.path.get(i);
-//            List<PPP> possible = new ArrayList<>();
-//            Queue<PPP> q = new LinkedList<>();
-//            q.add(new PPP(p, new ArrayList<>(), 0));
-//            Set<Point> seen = new HashSet<>();
-//            while (!q.isEmpty()) {
-//                PPP cur = q.poll();
-//                for(int k=0;k<4;k++) {
-//                    int ii = dx[k]+p.i;
-//                    int jj = dy[k]+p.j;
-//                    if (ii < 0 || ii >= N || jj < 0 || jj >= M) continue;
-//                    Point nxt = new Point(ii, jj);
-//                    if (seen.contains(nxt)) continue;
-//                    if (grid[ii][jj] == '#') {
-//                        // one step
-//                        if (cur.cheats.size() < maxCheats) {
-//                            seen.add(nxt);
-//                            List<Point> cheats = new ArrayList<>(cur.cheats);
-//                            cheats.add(nxt);
-//                            PPP tmp = new PPP(nxt, cheats, cur.steps+1);
-//                            possible.add(tmp);
-//                            q.add(tmp);
-//                        }
-//                    }
-//                    else {
-//                        seen.add(nxt);
-//                        q.add(new PPP(new Point(ii, jj), cur.cheats, cur.steps+1));
-//                    }
-//                }
-//            }
-//            for (PPP ppp: possible) {
-//                for(Point point:ppp.cheats) {
-//                    grid[point.i][point.j] = '.';
-//                }
-//                int cheat = bfsSteps(ppp.cheats.getLast(), end);
-//                for(Point point:ppp.cheats) {
-//                    grid[point.i][point.j] = '#';
-//                }
-//                if (cheat == -1) continue;
-//                int ss = orgPath.path.size() - (i+1 + ppp.steps + cheat);
-//                occ.put(ss, occ.getOrDefault(ss, 0) + 1);
-//                //if (orgPath.path.size() - (i+1 + ppp.steps + cheat) >= saves) ans++;
-//            }
-//
-//        }
 
         Map<Integer, Integer> occ = new HashMap<>();
-        Queue<PPP> q = new LinkedList<>();
-        PPP ppp = new PPP(start, 0, new HashSet<>());
-        ppp.steps.add(start);
-        q.add(ppp);
 
-        while (!q.isEmpty()) {
-            PPP cur = q.poll();
-            if (cur.p.i == end.i && cur.p.j == end.j) {
-                int ss = orgPath.path.size() - cur.steps.size();
-                if (ss >= saves) occ.put(ss, occ.getOrDefault(ss, 0) + 1);
-                continue;
-            }
-            for(int k=0;k<4;k++) {
-                int ii = dx[k]+cur.p.i;
-                int jj = dy[k]+cur.p.j;
-                if (ii < 0 || ii >= N || jj < 0 || jj >= M) continue;
-                Point nxt = new Point(ii, jj);
-
-                if (grid[ii][jj] == '#') {
-                    // one step
-                    if (cur.cheats < maxCheats && !cur.steps.contains(nxt)) {
-
-                        Set<Point> steps = new HashSet<>(cur.steps);
-                        steps.add(nxt);
-                        //PPP tmp = new PPP(nxt, cheats, cur.steps+1);
-                        //possible.add(tmp);
-                        q.add(new PPP(nxt, cur.cheats+1, steps));
-                    }
-                }
-                else if(!cur.steps.contains(nxt)) {
-                    Set<Point> steps = new HashSet<>(cur.steps);
-                    steps.add(nxt);
-                    q.add(new PPP(nxt, cur.cheats, steps));
+        for(int i=0;i<orgPath.path.size();i++) {
+            Point p1 = orgPath.path.get(i);
+            for(int j=i+1;j<orgPath.path.size();j++) {
+                Point p2 = orgPath.path.get(j);
+                int cheat = Math.abs(p1.i - p2.i) + Math.abs(p1.j - p2.j);
+                int diff = j - i - cheat;
+                if (cheat <= maxCheats && diff >= saves) {
+                    occ.put(diff, occ.getOrDefault(diff, 0)+1);
                 }
             }
         }
-        int ans = 0;
-        for(Integer ss:occ.keySet()) {
+
+        return occ.keySet().stream().sorted().peek(ss -> {
             System.out.println("There are " + occ.get(ss) + " cheats that save " + ss + " picoseconds");
-            ans += occ.get(ss);
-        }
-        return ans; //
+        }).map(occ::get).reduce(0, Integer::sum); // 982891
     }
-
     public static char[][] getGrid(List<String> lines) {
         char[][] grid = new char[lines.size()][];
         int cnt = 0;
         for (String line : lines) grid[cnt++] = line.toCharArray();
         return grid;
     }
-    public static int getDirIdx(char c) {
-        for (int i = 0; i < 4; i++) {
-            if (arrows[i] == c) return i;
-        }
-        return -1;
-    }
-    public static void printGrid() {
-        for (int i = 0; i < grid.length; i++) {
-            for (int j = 0; j < grid[i].length; j++) {
-                System.out.print(grid[i][j]);
-            }
-            System.out.println();
-        }
-    }
+
     record Point(int i, int j) {}
     record P(Point p, List<Point> path) { }
     record PP(Point p, int steps) { }
-    record PPP(Point p, int cheats, Set<Point> steps) { }
+    record PPP(int i1, int j1, int i2, int j2) { }
     static class InputReader {
         public BufferedReader reader;
         public StringTokenizer tokenizer;
